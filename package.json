@@ -26,7 +26,7 @@
         "homebridge": "^1.8.0 || ^2.0.0"
     },
     "dependencies": {
-        "axios": "^0.27.2"
+        "axios": "^1.16.1"
     },
     "keywords": [
         "homebridge",
@@ -39,7 +39,6 @@
         "cisco"
     ],
     "contributors": [],
-    "devDependencies": {},
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
     }
