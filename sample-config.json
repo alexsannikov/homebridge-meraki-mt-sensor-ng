@@ -17,27 +17,27 @@
             "devices": [
                 {
                     "name": "Temperature",
-                    "host": "https://n123.meraki.com",
+                    "host": "https://api.meraki.com",
                     "apiKey": "abcdefghij1234566",
                     "organizationId": "123456",
                     "networkId": "L_1234567890",
                     "serial": "ABCD-1234-ABCD",
                     "type": "tempSensor",
-                    "refreshInterval": 10
+                    "refreshInterval": 60
                 },
                 {
                     "name": "Humidity",
-                    "host": "https://n123456.meraki.com",
+                    "host": "https://api.meraki.com",
                     "apiKey": "abcdefghij1234566",
                     "organizationId": "123456",
                     "networkId": "L_1234567890",
                     "serial": "ABCD-1234-ABCD",
                     "type": "humiditySensor",
-                    "refreshInterval": 60
+                    "refreshInterval": 120
                 },
                 {
                     "name": "Balcony Door",
-                    "host": "https://n123456.meraki.com",
+                    "host": "https://api.meraki.com",
                     "apiKey": "abcdefghij1234566",
                     "organizationId": "123456",
                     "networkId": "L_1234567890",
@@ -47,7 +47,7 @@
                 },
                 {
                     "name": "Flood Sensor",
-                    "host": "https://n123456.meraki.com",
+                    "host": "https://api.meraki.com",
                     "apiKey": "abcdefghij1234566",
                     "organizationId": "123456",
                     "networkId": "L_1234567890",
@@ -58,6 +58,7 @@
             ],
             "platform": "MerakiMT",
             "_bridge": {
+                "name": "MT Sensors",
                 "username": "0E:C4:95:EB:6B:D3",
                 "port": 34668
             }

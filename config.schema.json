@@ -23,7 +23,7 @@
               "title": "API path",
               "type": "string",
               "required": true,
-              "description": "Example: https://n123.meraki.com"
+              "description": "Example: https://api.meraki.com"
             },
             "apiKey": {
               "title": "API key",

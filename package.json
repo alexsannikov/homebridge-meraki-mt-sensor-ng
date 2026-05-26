@@ -4,7 +4,7 @@
     "description": "Homebridge next-generation plugin for Meraki MT Sensors",
     "license": "MIT",
     "author": "alexsannikov",
-    "homepage": "https://github.com/alexsannikov/homebridge-meraki-mt-sensor-ng#readme",
+    "homepage": "https://github.com/alexsannikov/homebridge-meraki-mt-sensor-ng",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/alexsannikov/homebridge-meraki-mt-sensor-ng.git"
