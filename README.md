@@ -5,7 +5,7 @@
 <span align="center">
 
 # Homebridge Meraki MT Sensor NG
-[![npm](https://badgen.net/npm/dt/homebridge-meraki-mt-sensor-ng?color=purple)](https://www.npmjs.com/package/homebridge-meraki-mt-sensor-ng) [![npm](https://badgen.net/npm/v/homebridge-meraki-mt-sensor-ng?color=purple)](https://www.npmjs.com/package/homebridge-meraki-mt-sensor-ng)
+[![npm](https://img.shields.io/npm/dt/homebridge-meraki-mt-sensor-ng.svg)](https://www.npmjs.com/package/homebridge-meraki-mt-sensor-ng) [![npm](https://img.shields.io/npm/v/homebridge-meraki-mt-sensor-ng.svg)](https://www.npmjs.com/package/homebridge-meraki-mt-sensor-ng)
 
 Next Generation fork of the Homebridge plugin for Meraki MT sensors, with Homebridge v2 support.
 
