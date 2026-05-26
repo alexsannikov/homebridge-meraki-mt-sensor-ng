@@ -44,16 +44,6 @@
                     "serial": "ABCD-1234-ABCD",
                     "type": "doorSensor",
                     "refreshInterval": 5
-                },
-                {
-                    "name": "Flood Sensor",
-                    "host": "https://api.meraki.com",
-                    "apiKey": "abcdefghij1234566",
-                    "organizationId": "123456",
-                    "networkId": "L_1234567890",
-                    "serial": "ABCD-1234-ABCD",
-                    "type": "waterSensor",
-                    "refreshInterval": 30
                 }
             ],
             "platform": "MerakiMT",
