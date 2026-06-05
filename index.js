@@ -106,20 +106,17 @@ class merakiMTDevice {
     }
 
     //Check device state
-    setInterval(
-      () => {
-        if (this.checkDeviceState) {
-          this.updateDeviceState().catch((error) => {
-            this.log.debug(
-              "Device: %s, periodic update error: %s",
-              this.name,
-              error.message,
-            );
-          });
-        }
-      },
-      this.refreshInterval * 1000,
-    );
+    setInterval(() => {
+      if (this.checkDeviceState) {
+        this.updateDeviceState().catch((error) => {
+          this.log.debug(
+            "Device: %s, periodic update error: %s",
+            this.name,
+            error.message,
+          );
+        });
+      }
+    }, this.refreshInterval * 1000);
 
     this.prepareAccessory();
   }
@@ -161,7 +158,10 @@ class merakiMTDevice {
       .setCharacteristic(Characteristic.Manufacturer, this.manufacturer)
       .setCharacteristic(Characteristic.Model, this.modelName)
       .setCharacteristic(Characteristic.SerialNumber, this.serialNumber)
-      .setCharacteristic(Characteristic.FirmwareRevision, this.firmwareRevision);
+      .setCharacteristic(
+        Characteristic.FirmwareRevision,
+        this.firmwareRevision,
+      );
 
     this.accessory.addService(this.informationService);
   }
@@ -260,7 +260,11 @@ class merakiMTDevice {
       this.log("----------------------------------");
       await this.updateDeviceState();
     } catch (error) {
-      this.log.error("Device: %s, getDeviceInfo error: %s", this.name, error.message);
+      this.log.error(
+        "Device: %s, getDeviceInfo error: %s",
+        this.name,
+        error.message,
+      );
     }
   }
 
@@ -430,7 +434,11 @@ class merakiMTDevice {
           picked["model"],
         );
         this.modelName = picked["model"];
-        this.log.info("%s: updated model to: %s", this.serialNumber, this.modelName);
+        this.log.info(
+          "%s: updated model to: %s",
+          this.serialNumber,
+          this.modelName,
+        );
       }
     } catch (error) {
       this.log.error(
@@ -494,9 +502,12 @@ class merakiMTDevice {
 
   async getContactState() {
     try {
-      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=door", {
-        data: { serials: [this.serialNumber] },
-      });
+      const response = await this.meraki.get(
+        this.mtStatsUrl + "?metrics[]=door",
+        {
+          data: { serials: [this.serialNumber] },
+        },
+      );
       let value = response.data[0]["readings"][0]["door"]["open"];
       this.log.info(
         "getContactState() - Network: %s, Sensor: %s Value: %s",
@@ -554,9 +565,12 @@ class merakiMTDevice {
 
   async getVoc() {
     try {
-      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=tvoc", {
-        data: { serials: [this.serialNumber] },
-      });
+      const response = await this.meraki.get(
+        this.mtStatsUrl + "?metrics[]=tvoc",
+        {
+          data: { serials: [this.serialNumber] },
+        },
+      );
       let value = response.data[0]["readings"][0]["tvoc"]["concentration"];
       this.log.info(
         "getVoc() - Network: %s, Sensor: %s Value: %s",
@@ -578,9 +592,12 @@ class merakiMTDevice {
 
   async getCo2() {
     try {
-      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=co2", {
-        data: { serials: [this.serialNumber] },
-      });
+      const response = await this.meraki.get(
+        this.mtStatsUrl + "?metrics[]=co2",
+        {
+          data: { serials: [this.serialNumber] },
+        },
+      );
       let value = response.data[0]["readings"][0]["co2"]["concentration"];
       this.log.info(
         "getCo2() - Network: %s, Sensor: %s Value: %s",
@@ -602,9 +619,12 @@ class merakiMTDevice {
 
   async getCo2Safe() {
     try {
-      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=co2", {
-        data: { serials: [this.serialNumber] },
-      });
+      const response = await this.meraki.get(
+        this.mtStatsUrl + "?metrics[]=co2",
+        {
+          data: { serials: [this.serialNumber] },
+        },
+      );
       let value = response.data[0]["readings"][0]["co2"]["concentration"];
       if (value < 2000) {
         value = 0;
@@ -631,12 +651,15 @@ class merakiMTDevice {
 
   async getPm25() {
     try {
-      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=pm25", {
-        data: { serials: [this.serialNumber] },
-      });
+      const response = await this.meraki.get(
+        this.mtStatsUrl + "?metrics[]=pm25",
+        {
+          data: { serials: [this.serialNumber] },
+        },
+      );
       let value = response.data[0]["readings"][0]["pm25"]["concentration"];
       this.log.info(
-        "getpm25() - Network: %s, Sensor: %s Value: %s",
+        "getPm25() - Network: %s, Sensor: %s Value: %s",
         this.name,
         this.name,
         value,
