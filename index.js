@@ -79,14 +79,12 @@ class merakiMTDevice {
     //setup variables
     this.checkDeviceState = false;
     this.prefDir = path.join(api.user.storagePath(), "meraki");
-    this.productTypeUrl = this.host + "/api/v1/networks/" + this.networkId;
-    this.mtUrl = this.host + "/api/v1/devices/" + this.networkId + "/sensors";
+    this.devicesUrl =
+      this.host + "/api/v1/networks/" + this.networkId + "/devices";
     this.mtStatsUrl =
       "https://api.meraki.com/api/v1/organizations/" +
       this.organizationId +
       "/sensor/readings/latest";
-    this.devicesUrl =
-      this.host + "/api/v1/networks/" + this.networkId + "/devices";
 
     this.meraki = axios.create({
       baseURL: this.host,
@@ -97,7 +95,7 @@ class merakiMTDevice {
       },
     });
 
-    //check if prefs directory exists, if not then create it
+    //check if the directory exists, if not then create it
     if (!fs.existsSync(this.prefDir)) {
       fs.mkdirSync(this.prefDir, { recursive: true });
       this.log.debug(
@@ -154,21 +152,16 @@ class merakiMTDevice {
     this.log.debug("prepareInformationService");
     this.getDeviceInfo();
 
-    let manufacturer = this.manufacturer;
-    let modelName = this.modelName;
-    let serialNumber = this.serialNumber;
-    let firmwareRevision = this.firmwareRevision;
-
     this.accessory.removeService(
       this.accessory.getService(Service.AccessoryInformation),
     );
     this.informationService = new Service.AccessoryInformation();
     this.informationService
       .setCharacteristic(Characteristic.Name, this.name)
-      .setCharacteristic(Characteristic.Manufacturer, manufacturer)
-      .setCharacteristic(Characteristic.Model, modelName)
-      .setCharacteristic(Characteristic.SerialNumber, serialNumber)
-      .setCharacteristic(Characteristic.FirmwareRevision, firmwareRevision);
+      .setCharacteristic(Characteristic.Manufacturer, this.manufacturer)
+      .setCharacteristic(Characteristic.Model, this.modelName)
+      .setCharacteristic(Characteristic.SerialNumber, this.serialNumber)
+      .setCharacteristic(Characteristic.FirmwareRevision, this.firmwareRevision);
 
     this.accessory.addService(this.informationService);
   }
@@ -215,12 +208,6 @@ class merakiMTDevice {
           .onGet(this.getContactState.bind(this));
       }
 
-      // if (this.type == "waterSensor") {
-      //   this.merakiService1 = new Service.LeakSensor(this.name, 'merakiService1');
-      //   this.merakiService1.getCharacteristic(Characteristic.LeakDetected)
-      //           .onGet(this.getWaterState.bind(this));
-      // }
-
       if (this.type == "co2Sensor") {
         this.merakiService1 = new Service.CarbonDioxideSensor(
           this.name,
@@ -256,45 +243,43 @@ class merakiMTDevice {
       this.log.debug(
         "Device: %s, state Offline, read Device error: %s",
         this.name,
-        error,
+        error.message,
       );
     }
   }
 
   async getDeviceInfo() {
-    var me = this;
     try {
-      me.log.info("Device: %s, state: Online.", me.name);
-      me.log("-------- %s --------", me.name);
-      me.log("Manufacturer: %s", me.manufacturer);
-      me.log("Model: %s", me.modelName);
-      me.log("Serialnr: %s", me.serialNumber);
-      me.log("Firmware: %s", me.firmwareRevision);
-      me.log("Type: %s", me.type);
-      me.log("----------------------------------");
-      me.updateDeviceState();
+      this.log.info("Device: %s, state: Online.", this.name);
+      this.log("-------- %s --------", this.name);
+      this.log("Manufacturer: %s", this.manufacturer);
+      this.log("Model: %s", this.modelName);
+      this.log("Serial: %s", this.serialNumber);
+      this.log("Firmware: %s", this.firmwareRevision);
+      this.log("Type: %s", this.type);
+      this.log("----------------------------------");
+      await this.updateDeviceState();
     } catch (error) {
-      me.log.error("Device: %s, getDeviceInfo error: %s", me.name, error);
+      this.log.error("Device: %s, getDeviceInfo error: %s", this.name, error.message);
     }
   }
 
   async updateDeviceState() {
-    var me = this;
     try {
       if (this.type == "tempSensor") {
-        if (me.merakiService1) {
-          const response = await me.meraki.get(
-            me.mtStatsUrl + "?metrics[]=temperature",
-            { data: { serials: [me.serialNumber] } },
+        if (this.merakiService1) {
+          const response = await this.meraki.get(
+            this.mtStatsUrl + "?metrics[]=temperature",
+            { data: { serials: [this.serialNumber] } },
           );
           let value = response.data[0]["readings"][0]["temperature"]["celsius"];
-          me.log.info(
+          this.log.info(
             "Network: %s, Sensor: %s Value: %s",
-            me.name,
-            me.name,
+            this.name,
+            this.name,
             value,
           );
-          me.merakiService1.updateCharacteristic(
+          this.merakiService1.updateCharacteristic(
             Characteristic.CurrentTemperature,
             value,
           );
@@ -302,22 +287,22 @@ class merakiMTDevice {
       }
 
       if (this.type == "humiditySensor") {
-        if (me.merakiService1) {
-          const humresponse = await me.meraki.get(
-            me.mtStatsUrl + "?metrics[]=humidity",
-            { data: { serials: [me.serialNumber] } },
+        if (this.merakiService1) {
+          const humresponse = await this.meraki.get(
+            this.mtStatsUrl + "?metrics[]=humidity",
+            { data: { serials: [this.serialNumber] } },
           );
           let humvalue =
             humresponse.data[0]["readings"][0]["humidity"][
               "relativePercentage"
             ];
-          me.log.info(
+          this.log.info(
             "Network: %s, Sensor: %s Value: %s",
-            me.name,
-            me.name,
+            this.name,
+            this.name,
             humvalue,
           );
-          me.merakiService1.updateCharacteristic(
+          this.merakiService1.updateCharacteristic(
             Characteristic.CurrentRelativeHumidity,
             humvalue,
           );
@@ -325,19 +310,19 @@ class merakiMTDevice {
       }
 
       if (this.type == "co2Sensor") {
-        if (me.merakiService1) {
-          const response = await me.meraki.get(
-            me.mtStatsUrl + "?metrics[]=co2",
-            { data: { serials: [me.serialNumber] } },
+        if (this.merakiService1) {
+          const response = await this.meraki.get(
+            this.mtStatsUrl + "?metrics[]=co2",
+            { data: { serials: [this.serialNumber] } },
           );
           let value = response.data[0]["readings"][0]["co2"]["concentration"];
-          me.log.info(
+          this.log.info(
             "Network: %s, Sensor: %s Value: %s",
-            me.name,
-            me.name,
+            this.name,
+            this.name,
             value,
           );
-          me.merakiService1.updateCharacteristic(
+          this.merakiService1.updateCharacteristic(
             Characteristic.CarbonDioxideLevel,
             value,
           );
@@ -346,7 +331,7 @@ class merakiMTDevice {
           } else {
             value = 1;
           }
-          me.merakiService1.updateCharacteristic(
+          this.merakiService1.updateCharacteristic(
             Characteristic.CarbonDioxideDetected,
             value,
           );
@@ -354,41 +339,31 @@ class merakiMTDevice {
       }
 
       if (this.type == "doorSensor") {
-        if (me.merakiService1) {
-          const response = await me.meraki.get(
-            me.mtStatsUrl + "?metrics[]=door",
-            { data: { serials: [me.serialNumber] } },
+        if (this.merakiService1) {
+          const response = await this.meraki.get(
+            this.mtStatsUrl + "?metrics[]=door",
+            { data: { serials: [this.serialNumber] } },
           );
           let value = response.data[0]["readings"][0]["door"]["open"];
-          me.log.info("got response %s", value);
-          me.log.info(
+          this.log.info("got response %s", value);
+          this.log.info(
             "Network: %s, Sensor: %s Value: %s",
-            me.name,
-            me.name,
+            this.name,
+            this.name,
             value,
           );
-          me.merakiService1.updateCharacteristic(
+          this.merakiService1.updateCharacteristic(
             Characteristic.ContactSensorState,
             value,
           );
         }
       }
 
-      // if (this.type == "waterSensor") {
-      //   if (me.merakiService1) {
-      //     const response = await me.meraki.get(me.mtStatsUrl + '?metric=water_detection', { data: { serials: [me.serialNumber]} });
-      //     me.log.info('got response %s', response.data[0]);
-      //     let value = (response.data[0].value);
-      //     me.log.info('Network: %s, Sensor: %s Value: %s', me.name, me.name, value);
-      //     me.merakiService1.updateCharacteristic(Characteristic.LeakDetected, value);
-      //   }
-      // }
-
       if (this.type == "qualitySensor") {
-        if (me.merakiService1) {
-          const response = await me.meraki.get(
-            me.mtStatsUrl + "?metrics[]=indoorAirQuality",
-            { data: { serials: [me.serialNumber] } },
+        if (this.merakiService1) {
+          const response = await this.meraki.get(
+            this.mtStatsUrl + "?metrics[]=indoorAirQuality",
+            { data: { serials: [this.serialNumber] } },
           );
           let value =
             response.data[0]["readings"][0]["indoorAirQuality"]["score"];
@@ -403,89 +378,88 @@ class merakiMTDevice {
           } else {
             value = 5;
           }
-          me.log.info(
+          this.log.info(
             "Stat: Quality, Sensor: %s Value: %s",
-            me.name,
-            me.name,
+            this.name,
+            this.name,
             value,
           );
-          me.merakiService1.updateCharacteristic(
+          this.merakiService1.updateCharacteristic(
             Characteristic.AirQuality,
             value,
           );
-          const response2 = await me.meraki.get(
-            me.mtStatsUrl + "?metrics[]=pm25",
-            { data: { serials: [me.serialNumber] } },
+          const response2 = await this.meraki.get(
+            this.mtStatsUrl + "?metrics[]=pm25",
+            { data: { serials: [this.serialNumber] } },
           );
           value = response2.data[0]["readings"][0]["pm25"]["concentration"];
-          me.log.info(
+          this.log.info(
             "Stat: pm2.5, Sensor: %s Value: %s",
-            me.name,
-            me.name,
+            this.name,
+            this.name,
             value,
           );
-          me.merakiService1.updateCharacteristic(
+          this.merakiService1.updateCharacteristic(
             Characteristic.PM2_5Density,
             value,
           );
-          const response3 = await me.meraki.get(
-            me.mtStatsUrl + "?metrics[]=tvoc",
-            { data: { serials: [me.serialNumber] } },
+          const response3 = await this.meraki.get(
+            this.mtStatsUrl + "?metrics[]=tvoc",
+            { data: { serials: [this.serialNumber] } },
           );
           value = response3.data[0]["readings"][0]["tvoc"]["concentration"];
-          me.log.info(
+          this.log.info(
             "Stat: VOC, Sensor: %s Value: %s",
-            me.name,
-            me.name,
+            this.name,
+            this.name,
             value,
           );
-          me.merakiService1.updateCharacteristic(
+          this.merakiService1.updateCharacteristic(
             Characteristic.VOCDensity,
             value,
           );
         }
       }
 
-      if (me.serialNumber != "-" && me.modelName == "-") {
+      if (this.serialNumber != "-" && this.modelName == "-") {
         // go get model numbers for devices we have serials for
-        const response = await me.meraki.get(me.devicesUrl);
-        var picked = response.data.find((o) => o.serial === me.serialNumber);
-        me.informationService.setCharacteristic(
+        const response = await this.meraki.get(this.devicesUrl);
+        var picked = response.data.find((o) => o.serial === this.serialNumber);
+        this.informationService.setCharacteristic(
           Characteristic.Model,
           picked["model"],
         );
-        me.modelName = picked["model"];
-        me.log.info("%s: updated model to: %s", me.serialNumber, me.modelName);
+        this.modelName = picked["model"];
+        this.log.info("%s: updated model to: %s", this.serialNumber, this.modelName);
       }
     } catch (error) {
-      me.log.error(
+      this.log.error(
         "UpdateDeviceState() - Device: %s, update status error: %s, state: Offline",
-        me.name,
+        this.name,
         error.message,
       );
     }
   }
 
   async getTemperature() {
-    var me = this;
     try {
-      const response = await me.meraki.get(
-        me.mtStatsUrl + "?metrics[]=temperature",
-        { data: { serials: [me.serialNumber] } },
+      const response = await this.meraki.get(
+        this.mtStatsUrl + "?metrics[]=temperature",
+        { data: { serials: [this.serialNumber] } },
       );
       let value = response.data[0]["readings"][0]["temperature"]["celsius"];
-      me.log.info(
+      this.log.info(
         "getTemperature() - Network: %s, Sensor: %s Value: %s",
-        me.name,
-        me.name,
+        this.name,
+        this.name,
         value,
       );
       return value;
     } catch (error) {
-      me.log.debug(
+      this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
-        me.name,
-        me.serialNumber,
+        this.name,
+        this.serialNumber,
         error.message,
       );
       return null;
@@ -493,26 +467,25 @@ class merakiMTDevice {
   }
 
   async getHumidity() {
-    var me = this;
     try {
-      const response = await me.meraki.get(
-        me.mtStatsUrl + "?metrics[]=humidity",
-        { data: { serials: [me.serialNumber] } },
+      const response = await this.meraki.get(
+        this.mtStatsUrl + "?metrics[]=humidity",
+        { data: { serials: [this.serialNumber] } },
       );
       let value =
         response.data[0]["readings"][0]["humidity"]["relativePercentage"];
-      me.log.info(
+      this.log.info(
         "getHumidity() - Network: %s, Sensor: %s Value: %s",
-        me.name,
-        me.name,
+        this.name,
+        this.name,
         value,
       );
       return value;
     } catch (error) {
-      me.log.debug(
+      this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
-        me.name,
-        me.serialNumber,
+        this.name,
+        this.serialNumber,
         error.message,
       );
       return null;
@@ -520,48 +493,34 @@ class merakiMTDevice {
   }
 
   async getContactState() {
-    var me = this;
     try {
-      const response = await me.meraki.get(me.mtStatsUrl + "?metrics[]=door", {
-        data: { serials: [me.serialNumber] },
+      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=door", {
+        data: { serials: [this.serialNumber] },
       });
       let value = response.data[0]["readings"][0]["door"]["open"];
-      me.log.info(
+      this.log.info(
         "getContactState() - Network: %s, Sensor: %s Value: %s",
-        me.name,
-        me.name,
+        this.name,
+        this.name,
         value,
       );
       return value;
     } catch (error) {
-      me.log.debug(
+      this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
-        me.name,
-        me.serialNumber,
+        this.name,
+        this.serialNumber,
         error.message,
       );
       return null;
     }
   }
 
-  // async getWaterState() {
-  //   var me = this;
-  //   try {
-  //     const response = await me.meraki.get(me.mtStatsUrl + '?metric=water_detection', { data: { serials: [me.serialNumber]} });
-  //     let value = (response.data[0].value);
-  //     me.log.info('getContactState() - Network: %s, Sensor: %s Value: %s', me.name, me.name, value);
-  //     return value;
-  //   } catch (error) {
-  //     me.log.debug('Device: %s, Serial: %s get state error: %s', me.name, me.serialNumber, error.message);
-  //     return null;
-  //   };
-  // }
   async getQuality() {
-    var me = this;
     try {
-      const response = await me.meraki.get(
-        me.mtStatsUrl + "?metrics[]=indoorAirQuality",
-        { data: { serials: [me.serialNumber] } },
+      const response = await this.meraki.get(
+        this.mtStatsUrl + "?metrics[]=indoorAirQuality",
+        { data: { serials: [this.serialNumber] } },
       );
       let value = response.data[0]["readings"][0]["indoorAirQuality"]["score"];
       if (value >= 93) {
@@ -575,18 +534,18 @@ class merakiMTDevice {
       } else {
         value = 5;
       }
-      me.log.info(
+      this.log.info(
         "getQuality() - Network: %s, Sensor: %s Value: %s",
-        me.name,
-        me.name,
+        this.name,
+        this.name,
         value,
       );
       return value;
     } catch (error) {
-      me.log.debug(
+      this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
-        me.name,
-        me.serialNumber,
+        this.name,
+        this.serialNumber,
         error.message,
       );
       return null;
@@ -594,24 +553,23 @@ class merakiMTDevice {
   }
 
   async getVoc() {
-    var me = this;
     try {
-      const response = await me.meraki.get(me.mtStatsUrl + "?metrics[]=tvoc", {
-        data: { serials: [me.serialNumber] },
+      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=tvoc", {
+        data: { serials: [this.serialNumber] },
       });
       let value = response.data[0]["readings"][0]["tvoc"]["concentration"];
-      me.log.info(
+      this.log.info(
         "getVoc() - Network: %s, Sensor: %s Value: %s",
-        me.name,
-        me.name,
+        this.name,
+        this.name,
         value,
       );
       return value;
     } catch (error) {
-      me.log.debug(
+      this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
-        me.name,
-        me.serialNumber,
+        this.name,
+        this.serialNumber,
         error.message,
       );
       return null;
@@ -619,24 +577,23 @@ class merakiMTDevice {
   }
 
   async getCo2() {
-    var me = this;
     try {
-      const response = await me.meraki.get(me.mtStatsUrl + "?metrics[]=co2", {
-        data: { serials: [me.serialNumber] },
+      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=co2", {
+        data: { serials: [this.serialNumber] },
       });
       let value = response.data[0]["readings"][0]["co2"]["concentration"];
-      me.log.info(
+      this.log.info(
         "getCo2() - Network: %s, Sensor: %s Value: %s",
-        me.name,
-        me.name,
+        this.name,
+        this.name,
         value,
       );
       return value;
     } catch (error) {
-      me.log.debug(
+      this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
-        me.name,
-        me.serialNumber,
+        this.name,
+        this.serialNumber,
         error.message,
       );
       return null;
@@ -644,10 +601,9 @@ class merakiMTDevice {
   }
 
   async getCo2Safe() {
-    var me = this;
     try {
-      const response = await me.meraki.get(me.mtStatsUrl + "?metrics[]=co2", {
-        data: { serials: [me.serialNumber] },
+      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=co2", {
+        data: { serials: [this.serialNumber] },
       });
       let value = response.data[0]["readings"][0]["co2"]["concentration"];
       if (value < 2000) {
@@ -655,18 +611,18 @@ class merakiMTDevice {
       } else {
         value = 1;
       }
-      me.log.info(
+      this.log.info(
         "getCo2Safe() - Network: %s, Sensor: %s Value: %s",
-        me.name,
-        me.name,
+        this.name,
+        this.name,
         value,
       );
       return value;
     } catch (error) {
-      me.log.debug(
+      this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
-        me.name,
-        me.serialNumber,
+        this.name,
+        this.serialNumber,
         error.message,
       );
       return null;
@@ -674,24 +630,23 @@ class merakiMTDevice {
   }
 
   async getPm25() {
-    var me = this;
     try {
-      const response = await me.meraki.get(me.mtStatsUrl + "?metrics[]=pm25", {
-        data: { serials: [me.serialNumber] },
+      const response = await this.meraki.get(this.mtStatsUrl + "?metrics[]=pm25", {
+        data: { serials: [this.serialNumber] },
       });
       let value = response.data[0]["readings"][0]["pm25"]["concentration"];
-      me.log.info(
+      this.log.info(
         "getpm25() - Network: %s, Sensor: %s Value: %s",
-        me.name,
-        me.name,
+        this.name,
+        this.name,
         value,
       );
       return value;
     } catch (error) {
-      me.log.debug(
+      this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
-        me.name,
-        me.serialNumber,
+        this.name,
+        this.serialNumber,
         error.message,
       );
       return null;
