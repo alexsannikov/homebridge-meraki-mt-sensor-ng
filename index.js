@@ -97,38 +97,29 @@ class merakiMTDevice {
       },
     });
 
-    //check if prefs directory ends with a /, if not then add it
-    if (this.prefDir.endsWith("/") === false) {
-      this.prefDir = this.prefDir + "/";
-    }
-
-    //check if the directory exists, if not then create it
-    if (fs.existsSync(this.prefDir) === false) {
-      fs.mkdir(this.prefDir, { recursive: false }, (error) => {
-        if (error) {
-          this.log.error(
-            "Device: %s , create directory: %s, error: %s",
-            this.name,
-            this.prefDir,
-            error,
-          );
-        } else {
-          this.log.debug(
-            "Device: %s , create directory successful: %s",
-            this.name,
-            this.prefDir,
-          );
-        }
-      });
+    //check if prefs directory exists, if not then create it
+    if (!fs.existsSync(this.prefDir)) {
+      fs.mkdirSync(this.prefDir, { recursive: true });
+      this.log.debug(
+        "Device: %s , create directory successful: %s",
+        this.name,
+        this.prefDir,
+      );
     }
 
     //Check device state
     setInterval(
-      function () {
+      () => {
         if (this.checkDeviceState) {
-          this.updateDeviceState();
+          this.updateDeviceState().catch((error) => {
+            this.log.debug(
+              "Device: %s, periodic update error: %s",
+              this.name,
+              error.message,
+            );
+          });
         }
-      }.bind(this),
+      },
       this.refreshInterval * 1000,
     );
 
@@ -207,6 +198,10 @@ class merakiMTDevice {
         );
         this.merakiService1
           .getCharacteristic(Characteristic.CurrentRelativeHumidity)
+          .setProps({
+            minValue: 0,
+            maxValue: 100,
+          })
           .onGet(this.getHumidity.bind(this));
       }
 
@@ -466,7 +461,7 @@ class merakiMTDevice {
       me.log.error(
         "UpdateDeviceState() - Device: %s, update status error: %s, state: Offline",
         me.name,
-        error,
+        error.message,
       );
     }
   }
@@ -490,9 +485,10 @@ class merakiMTDevice {
       me.log.debug(
         "Device: %s, Serial: %s get state error: %s",
         me.name,
-        me.serial,
-        error,
+        me.serialNumber,
+        error.message,
       );
+      return null;
     }
   }
 
@@ -516,9 +512,10 @@ class merakiMTDevice {
       me.log.debug(
         "Device: %s, Serial: %s get state error: %s",
         me.name,
-        me.serial,
-        error,
+        me.serialNumber,
+        error.message,
       );
+      return null;
     }
   }
 
@@ -540,9 +537,10 @@ class merakiMTDevice {
       me.log.debug(
         "Device: %s, Serial: %s get state error: %s",
         me.name,
-        me.serial,
-        error,
+        me.serialNumber,
+        error.message,
       );
+      return null;
     }
   }
 
@@ -554,7 +552,8 @@ class merakiMTDevice {
   //     me.log.info('getContactState() - Network: %s, Sensor: %s Value: %s', me.name, me.name, value);
   //     return value;
   //   } catch (error) {
-  //     me.log.debug('Device: %s, Serial: %s get state error: %s', me.name, me.serial, error);
+  //     me.log.debug('Device: %s, Serial: %s get state error: %s', me.name, me.serialNumber, error.message);
+  //     return null;
   //   };
   // }
   async getQuality() {
@@ -587,9 +586,10 @@ class merakiMTDevice {
       me.log.debug(
         "Device: %s, Serial: %s get state error: %s",
         me.name,
-        me.serial,
-        error,
+        me.serialNumber,
+        error.message,
       );
+      return null;
     }
   }
 
@@ -611,9 +611,10 @@ class merakiMTDevice {
       me.log.debug(
         "Device: %s, Serial: %s get state error: %s",
         me.name,
-        me.serial,
-        error,
+        me.serialNumber,
+        error.message,
       );
+      return null;
     }
   }
 
@@ -635,9 +636,10 @@ class merakiMTDevice {
       me.log.debug(
         "Device: %s, Serial: %s get state error: %s",
         me.name,
-        me.serial,
-        error,
+        me.serialNumber,
+        error.message,
       );
+      return null;
     }
   }
 
@@ -664,9 +666,10 @@ class merakiMTDevice {
       me.log.debug(
         "Device: %s, Serial: %s get state error: %s",
         me.name,
-        me.serial,
-        error,
+        me.serialNumber,
+        error.message,
       );
+      return null;
     }
   }
 
@@ -688,9 +691,10 @@ class merakiMTDevice {
       me.log.debug(
         "Device: %s, Serial: %s get state error: %s",
         me.name,
-        me.serial,
-        error,
+        me.serialNumber,
+        error.message,
       );
+      return null;
     }
   }
 }
