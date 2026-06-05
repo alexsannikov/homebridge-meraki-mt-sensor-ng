@@ -278,8 +278,8 @@ class merakiMTDevice {
           );
           let value = response.data[0]["readings"][0]["temperature"]["celsius"];
           this.log.info(
-            "Network: %s, Sensor: %s Value: %s",
-            this.name,
+            "Network ID: %s, Sensor: %s Value: %s",
+            this.networkId,
             this.name,
             value,
           );
@@ -301,8 +301,8 @@ class merakiMTDevice {
               "relativePercentage"
             ];
           this.log.info(
-            "Network: %s, Sensor: %s Value: %s",
-            this.name,
+            "Network ID: %s, Sensor: %s Value: %s",
+            this.networkId,
             this.name,
             humvalue,
           );
@@ -321,8 +321,8 @@ class merakiMTDevice {
           );
           let value = response.data[0]["readings"][0]["co2"]["concentration"];
           this.log.info(
-            "Network: %s, Sensor: %s Value: %s",
-            this.name,
+            "Network ID: %s, Sensor: %s Value: %s",
+            this.networkId,
             this.name,
             value,
           );
@@ -351,8 +351,8 @@ class merakiMTDevice {
           let value = response.data[0]["readings"][0]["door"]["open"];
           this.log.info("got response %s", value);
           this.log.info(
-            "Network: %s, Sensor: %s Value: %s",
-            this.name,
+            "Network ID: %s, Sensor: %s Value: %s",
+            this.networkId,
             this.name,
             value,
           );
@@ -383,8 +383,8 @@ class merakiMTDevice {
             value = 5;
           }
           this.log.info(
-            "Stat: Quality, Sensor: %s Value: %s",
-            this.name,
+            "Network ID: %s, Sensor: %s Value: %s",
+            this.networkId,
             this.name,
             value,
           );
@@ -398,8 +398,8 @@ class merakiMTDevice {
           );
           value = response2.data[0]["readings"][0]["pm25"]["concentration"];
           this.log.info(
-            "Stat: pm2.5, Sensor: %s Value: %s",
-            this.name,
+            "Network ID: %s, Sensor: %s PM2.5: %s",
+            this.networkId,
             this.name,
             value,
           );
@@ -413,8 +413,8 @@ class merakiMTDevice {
           );
           value = response3.data[0]["readings"][0]["tvoc"]["concentration"];
           this.log.info(
-            "Stat: VOC, Sensor: %s Value: %s",
-            this.name,
+            "Network ID: %s, Sensor: %s VOC: %s",
+            this.networkId,
             this.name,
             value,
           );
@@ -457,8 +457,8 @@ class merakiMTDevice {
       );
       let value = response.data[0]["readings"][0]["temperature"]["celsius"];
       this.log.info(
-        "getTemperature() - Network: %s, Sensor: %s Value: %s",
-        this.name,
+        "getTemperature() - Network ID: %s, Sensor: %s Value: %s",
+        this.networkId,
         this.name,
         value,
       );
@@ -483,8 +483,8 @@ class merakiMTDevice {
       let value =
         response.data[0]["readings"][0]["humidity"]["relativePercentage"];
       this.log.info(
-        "getHumidity() - Network: %s, Sensor: %s Value: %s",
-        this.name,
+        "getHumidity() - Network ID: %s, Sensor: %s Value: %s",
+        this.networkId,
         this.name,
         value,
       );
@@ -510,8 +510,8 @@ class merakiMTDevice {
       );
       let value = response.data[0]["readings"][0]["door"]["open"];
       this.log.info(
-        "getContactState() - Network: %s, Sensor: %s Value: %s",
-        this.name,
+        "getContactState() - Network ID: %s, Sensor: %s Value: %s",
+        this.networkId,
         this.name,
         value,
       );
@@ -546,8 +546,8 @@ class merakiMTDevice {
         value = 5;
       }
       this.log.info(
-        "getQuality() - Network: %s, Sensor: %s Value: %s",
-        this.name,
+        "getQuality() - Network ID: %s, Sensor: %s Value: %s",
+        this.networkId,
         this.name,
         value,
       );
@@ -573,8 +573,8 @@ class merakiMTDevice {
       );
       let value = response.data[0]["readings"][0]["tvoc"]["concentration"];
       this.log.info(
-        "getVoc() - Network: %s, Sensor: %s Value: %s",
-        this.name,
+        "getVoc() - Network ID: %s, Sensor: %s Value: %s",
+        this.networkId,
         this.name,
         value,
       );
@@ -600,8 +600,8 @@ class merakiMTDevice {
       );
       let value = response.data[0]["readings"][0]["co2"]["concentration"];
       this.log.info(
-        "getCo2() - Network: %s, Sensor: %s Value: %s",
-        this.name,
+        "getCo2() - Network ID: %s, Sensor: %s Value: %s",
+        this.networkId,
         this.name,
         value,
       );
@@ -632,8 +632,8 @@ class merakiMTDevice {
         value = 1;
       }
       this.log.info(
-        "getCo2Safe() - Network: %s, Sensor: %s Value: %s",
-        this.name,
+        "getCo2Safe() - Network ID: %s, Sensor: %s Value: %s",
+        this.networkId,
         this.name,
         value,
       );
@@ -659,8 +659,8 @@ class merakiMTDevice {
       );
       let value = response.data[0]["readings"][0]["pm25"]["concentration"];
       this.log.info(
-        "getPm25() - Network: %s, Sensor: %s Value: %s",
-        this.name,
+        "getPm25() - Network ID: %s, Sensor: %s Value: %s",
+        this.networkId,
         this.name,
         value,
       );
