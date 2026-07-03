@@ -3,6 +3,7 @@
 const axios = require("axios").default;
 
 const PLUGIN_NAME = "homebridge-meraki-mt-sensor-ng";
+const PLUGIN_VERSION = require("./package.json").version.replace(/-.*$/, "");
 const PLATFORM_NAME = "MerakiMT";
 
 const METRICS_BY_TYPE = {
@@ -134,9 +135,10 @@ class MerakiMTDevice {
 
     //get Device info
     this.manufacturer = config.manufacturer || "Cisco Meraki";
-    this.modelName = config.modelName || "-";
+    this.modelName = config.modelName || "MT Sensor";
+    this.modelKnown = Boolean(config.modelName);
     this.serialNumber = config.serial || "-";
-    this.firmwareRevision = config.firmwareRevision || "-";
+    this.firmwareRevision = config.firmwareRevision || PLUGIN_VERSION;
 
     //setup variables
     this.checkDeviceState = false;
@@ -489,7 +491,7 @@ class MerakiMTDevice {
         }
       }
 
-      if (this.serialNumber != "-" && this.modelName == "-") {
+      if (!this.modelKnown) {
         // go get model numbers for devices we have serials for
         const response = await this.meraki.get(this.devicesUrl);
         const picked = response.data.find(
@@ -501,6 +503,7 @@ class MerakiMTDevice {
             picked.model,
           );
           this.modelName = picked.model;
+          this.modelKnown = true;
           this.log.info(
             "%s: updated model to: %s",
             this.serialNumber,
