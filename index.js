@@ -6,6 +6,7 @@ const PLUGIN_NAME = "homebridge-meraki-mt-sensor-ng";
 const PLUGIN_VERSION = require("./package.json").version.replace(/-.*$/, "");
 const PLATFORM_NAME = "MerakiMT";
 
+//Meraki metrics requested for each sensor type
 const METRICS_BY_TYPE = {
   tempSensor: ["temperature"],
   humiditySensor: ["humidity"],
@@ -13,6 +14,9 @@ const METRICS_BY_TYPE = {
   co2Sensor: ["co2"],
   qualitySensor: ["indoorAirQuality", "pm25", "tvoc"],
 };
+
+//CO2 concentration (ppm) from which CarbonDioxideDetected reports an alert
+const CO2_ALERT_PPM = 2000;
 
 let Characteristic, Service, UUID, HapStatusError, HAPStatus;
 
@@ -25,10 +29,23 @@ module.exports = (api) => {
   api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, MerakiMTPlatform);
 };
 
+//map the Meraki indoor air quality score (100 = best) to HomeKit AirQuality (1 = excellent, 5 = poor)
+function toAirQuality(score) {
+  if (score >= 93) {
+    return 1;
+  } else if (score >= 80) {
+    return 2;
+  } else if (score >= 60) {
+    return 3;
+  } else if (score >= 40) {
+    return 4;
+  }
+  return 5;
+}
+
 class MerakiMTPlatform {
   constructor(log, config, api) {
     this.log = log;
-    this.config = config;
     this.api = api;
     this.accessories = [];
 
@@ -67,6 +84,7 @@ class MerakiMTPlatform {
         continue;
       }
 
+      //seed the UUID from serial and type so renaming a sensor keeps its pairing
       const uuid = UUID.generate(
         PLUGIN_NAME + ":" + device.serial + ":" + device.type,
       );
@@ -90,7 +108,7 @@ class MerakiMTPlatform {
         this.accessories.push(accessory);
       }
 
-      new MerakiMTDevice(this.log, device, this.api, accessory);
+      new MerakiMTDevice(this.log, device, accessory);
     }
 
     //remove cached accessories that are no longer in the config
@@ -117,50 +135,49 @@ class MerakiMTPlatform {
 }
 
 class MerakiMTDevice {
-  constructor(log, config, api, accessory) {
+  constructor(log, config, accessory) {
     this.log = log;
-    this.api = api;
-    this.config = config;
     this.accessory = accessory;
 
-    //network configuration
+    //device configuration
     this.name = config.name;
-    this.host = config.host;
-    this.apiKey = config.apiKey;
-    this.organizationId = config.organizationId;
     this.networkId = config.networkId;
     this.type = config.type;
     this.metrics = METRICS_BY_TYPE[this.type];
     this.refreshInterval = config.refreshInterval || 60;
 
-    //get Device info
+    //accessory information; the model is resolved from the Meraki API unless configured
     this.manufacturer = config.manufacturer || "Cisco Meraki";
     this.modelName = config.modelName || "MT Sensor";
     this.modelKnown = Boolean(config.modelName);
-    this.serialNumber = config.serial || "-";
+    this.serialNumber = config.serial;
     this.firmwareRevision = config.firmwareRevision || PLUGIN_VERSION;
 
-    //setup variables
-    this.checkDeviceState = false;
+    //Meraki API endpoints
     this.devicesUrl =
-      this.host + "/api/v1/networks/" + this.networkId + "/devices";
+      config.host + "/api/v1/networks/" + this.networkId + "/devices";
     this.mtStatsUrl =
       "https://api.meraki.com/api/v1/organizations/" +
-      this.organizationId +
+      config.organizationId +
       "/sensor/readings/latest";
 
     this.meraki = axios.create({
-      baseURL: this.host,
+      baseURL: config.host,
       headers: {
-        "X-Cisco-Meraki-API-Key": this.apiKey,
+        "X-Cisco-Meraki-API-Key": config.apiKey,
         "Content-Type": "application/json; charset=utf-8",
         Accept: "application/json",
       },
     });
 
-    //Check device state
+    this.pollingEnabled = false;
+    this.prepareInformationService();
+    this.prepareSensorService();
+    this.getDeviceInfo();
+
+    //poll the Meraki API and push fresh readings to HomeKit
     setInterval(() => {
-      if (this.checkDeviceState) {
+      if (this.pollingEnabled) {
         this.updateDeviceState().catch((error) => {
           this.log.debug(
             "Device: %s, periodic update error: %s",
@@ -170,16 +187,10 @@ class MerakiMTDevice {
         });
       }
     }, this.refreshInterval * 1000);
-
-    this.prepareInformationService();
-    this.prepareMerakiService();
   }
 
   //Prepare information service
   prepareInformationService() {
-    this.log.debug("prepareInformationService");
-    this.getDeviceInfo();
-
     this.informationService = this.accessory.getService(
       Service.AccessoryInformation,
     );
@@ -194,123 +205,84 @@ class MerakiMTDevice {
       );
   }
 
-  //Prepare service
-  async prepareMerakiService() {
-    this.log.debug("prepareMerakiService");
+  //Expose the HomeKit service and characteristics matching the sensor type
+  prepareSensorService() {
     try {
-      if (this.type == "tempSensor") {
-        this.merakiService1 =
-          this.accessory.getServiceById(
-            Service.TemperatureSensor,
-            "merakiService1",
-          ) ||
-          this.accessory.addService(
-            Service.TemperatureSensor,
-            this.name,
-            "merakiService1",
-          );
-        this.merakiService1
-          .getCharacteristic(Characteristic.CurrentTemperature)
-          .setProps({
-            minValue: -100,
-            maxValue: 100,
-          })
-          .onGet(this.getTemperature.bind(this));
-      }
+      switch (this.type) {
+        case "tempSensor":
+          this.sensorService = this.getOrAddService(Service.TemperatureSensor);
+          this.sensorService
+            .getCharacteristic(Characteristic.CurrentTemperature)
+            .setProps({ minValue: -100, maxValue: 100 })
+            .onGet(this.getTemperature.bind(this));
+          break;
 
-      if (this.type == "humiditySensor") {
-        this.merakiService1 =
-          this.accessory.getServiceById(
-            Service.HumiditySensor,
-            "merakiService1",
-          ) ||
-          this.accessory.addService(
-            Service.HumiditySensor,
-            this.name,
-            "merakiService1",
-          );
-        this.merakiService1
-          .getCharacteristic(Characteristic.CurrentRelativeHumidity)
-          .setProps({
-            minValue: 0,
-            maxValue: 100,
-          })
-          .onGet(this.getHumidity.bind(this));
-      }
+        case "humiditySensor":
+          this.sensorService = this.getOrAddService(Service.HumiditySensor);
+          this.sensorService
+            .getCharacteristic(Characteristic.CurrentRelativeHumidity)
+            .setProps({ minValue: 0, maxValue: 100 })
+            .onGet(this.getHumidity.bind(this));
+          break;
 
-      if (this.type == "doorSensor") {
-        this.merakiService1 =
-          this.accessory.getServiceById(
-            Service.ContactSensor,
-            "merakiService1",
-          ) ||
-          this.accessory.addService(
-            Service.ContactSensor,
-            this.name,
-            "merakiService1",
-          );
-        this.merakiService1
-          .getCharacteristic(Characteristic.ContactSensorState)
-          .onGet(this.getContactState.bind(this));
-      }
+        case "doorSensor":
+          this.sensorService = this.getOrAddService(Service.ContactSensor);
+          this.sensorService
+            .getCharacteristic(Characteristic.ContactSensorState)
+            .onGet(this.getContactState.bind(this));
+          break;
 
-      if (this.type == "co2Sensor") {
-        this.merakiService1 =
-          this.accessory.getServiceById(
+        case "co2Sensor":
+          this.sensorService = this.getOrAddService(
             Service.CarbonDioxideSensor,
-            "merakiService1",
-          ) ||
-          this.accessory.addService(
-            Service.CarbonDioxideSensor,
-            this.name,
-            "merakiService1",
           );
-        this.merakiService1
-          .getCharacteristic(Characteristic.CarbonDioxideDetected)
-          .onGet(this.getCo2Safe.bind(this));
-        this.merakiService1
-          .getCharacteristic(Characteristic.CarbonDioxideLevel)
-          .onGet(this.getCo2.bind(this));
-      }
+          this.sensorService
+            .getCharacteristic(Characteristic.CarbonDioxideDetected)
+            .onGet(this.getCo2Detected.bind(this));
+          this.sensorService
+            .getCharacteristic(Characteristic.CarbonDioxideLevel)
+            .onGet(this.getCo2.bind(this));
+          break;
 
-      if (this.type == "qualitySensor") {
-        this.merakiService1 =
-          this.accessory.getServiceById(
-            Service.AirQualitySensor,
-            "merakiService1",
-          ) ||
-          this.accessory.addService(
-            Service.AirQualitySensor,
+        case "qualitySensor":
+          this.sensorService = this.getOrAddService(Service.AirQualitySensor);
+          this.sensorService
+            .getCharacteristic(Characteristic.AirQuality)
+            .onGet(this.getQuality.bind(this));
+          this.sensorService
+            .getCharacteristic(Characteristic.PM2_5Density)
+            .onGet(this.getPm25.bind(this));
+          //Meraki reports TVOC in µg/m³ which can exceed the HAP default maximum of 1000
+          this.sensorService
+            .getCharacteristic(Characteristic.VOCDensity)
+            .setProps({ minValue: 0, maxValue: 10000 })
+            .onGet(this.getVoc.bind(this));
+          break;
+
+        default:
+          this.log.warn(
+            "Device: %s, unknown sensor type: %s",
             this.name,
-            "merakiService1",
+            this.type,
           );
-        this.merakiService1
-          .getCharacteristic(Characteristic.AirQuality)
-          .onGet(this.getQuality.bind(this));
-        this.merakiService1
-          .getCharacteristic(Characteristic.PM2_5Density)
-          .onGet(this.getPm25.bind(this));
-        this.merakiService1
-          .getCharacteristic(Characteristic.VOCDensity)
-          .onGet(this.getVoc.bind(this));
+          return;
       }
-
-      if (!this.merakiService1) {
-        this.log.warn(
-          "Device: %s, unknown sensor type: %s",
-          this.name,
-          this.type,
-        );
-        return;
-      }
-      this.checkDeviceState = true;
+      this.pollingEnabled = true;
     } catch (error) {
-      this.log.debug(
-        "Device: %s, state Offline, read Device error: %s",
+      this.log.error(
+        "Device: %s, failed to set up HomeKit service: %s",
         this.name,
         error.message,
       );
     }
+  }
+
+  //Reuse the sensor service on a cache-restored accessory or add it on a new one
+  getOrAddService(serviceType) {
+    return (
+      this.accessory.getServiceById(serviceType, "merakiService1") ||
+      this.accessory.addService(serviceType, this.name, "merakiService1")
+    );
   }
 
   //Fetch the latest readings of all metrics for this sensor from the Meraki API
@@ -341,202 +313,150 @@ class MerakiMTDevice {
     return reading;
   }
 
-  async getDeviceInfo() {
-    try {
-      this.log.info("Device: %s, state: Online.", this.name);
-      this.log("-------- %s --------", this.name);
-      this.log("Manufacturer: %s", this.manufacturer);
-      this.log("Model: %s", this.modelName);
-      this.log("Serial: %s", this.serialNumber);
-      this.log("Firmware: %s", this.firmwareRevision);
-      this.log("Type: %s", this.type);
-      this.log("----------------------------------");
-      await this.updateDeviceState();
-    } catch (error) {
+  //Log the device banner and fetch the initial state
+  getDeviceInfo() {
+    this.log("-------- %s --------", this.name);
+    this.log("Manufacturer: %s", this.manufacturer);
+    this.log("Model: %s", this.modelName);
+    this.log("Serial: %s", this.serialNumber);
+    this.log("Firmware: %s", this.firmwareRevision);
+    this.log("Type: %s", this.type);
+    this.log("----------------------------------");
+    this.updateDeviceState().catch((error) => {
       this.log.error(
-        "Device: %s, getDeviceInfo error: %s",
+        "Device: %s, initial update error: %s",
         this.name,
         error.message,
       );
-    }
+    });
   }
 
+  logReading(metric, value) {
+    this.log.debug(
+      "Network ID: %s, Sensor: %s %s: %s",
+      this.networkId,
+      this.name,
+      metric,
+      value,
+    );
+  }
+
+  //Poll the Meraki API and push the readings to HomeKit
   async updateDeviceState() {
     try {
-      if (!this.metrics) {
+      if (!this.sensorService) {
         return;
       }
       await this.fetchLatestReadings();
 
-      if (this.type == "tempSensor") {
-        if (this.merakiService1) {
+      switch (this.type) {
+        case "tempSensor": {
           const value = (await this.getLatestReading("temperature")).celsius;
-          this.log.debug(
-            "Network ID: %s, Sensor: %s Value: %s",
-            this.networkId,
-            this.name,
-            value,
-          );
-          this.merakiService1.updateCharacteristic(
+          this.logReading("temperature", value);
+          this.sensorService.updateCharacteristic(
             Characteristic.CurrentTemperature,
             value,
           );
+          break;
         }
-      }
-
-      if (this.type == "humiditySensor") {
-        if (this.merakiService1) {
-          const humvalue = (await this.getLatestReading("humidity"))
+        case "humiditySensor": {
+          const value = (await this.getLatestReading("humidity"))
             .relativePercentage;
-          this.log.debug(
-            "Network ID: %s, Sensor: %s Value: %s",
-            this.networkId,
-            this.name,
-            humvalue,
-          );
-          this.merakiService1.updateCharacteristic(
+          this.logReading("humidity", value);
+          this.sensorService.updateCharacteristic(
             Characteristic.CurrentRelativeHumidity,
-            humvalue,
+            value,
           );
+          break;
         }
-      }
-
-      if (this.type == "co2Sensor") {
-        if (this.merakiService1) {
-          let value = (await this.getLatestReading("co2")).concentration;
-          this.log.debug(
-            "Network ID: %s, Sensor: %s Value: %s",
-            this.networkId,
-            this.name,
-            value,
-          );
-          this.merakiService1.updateCharacteristic(
-            Characteristic.CarbonDioxideLevel,
-            value,
-          );
-          if (value < 2000) {
-            value = 0;
-          } else {
-            value = 1;
-          }
-          this.merakiService1.updateCharacteristic(
-            Characteristic.CarbonDioxideDetected,
-            value,
-          );
-        }
-      }
-
-      if (this.type == "doorSensor") {
-        if (this.merakiService1) {
+        case "doorSensor": {
           const value = (await this.getLatestReading("door")).open ? 1 : 0;
-          this.log.debug(
-            "Network ID: %s, Sensor: %s Value: %s",
-            this.networkId,
-            this.name,
-            value,
-          );
-          this.merakiService1.updateCharacteristic(
+          this.logReading("door", value);
+          this.sensorService.updateCharacteristic(
             Characteristic.ContactSensorState,
             value,
           );
+          break;
         }
-      }
-
-      if (this.type == "qualitySensor") {
-        if (this.merakiService1) {
-          let value = (await this.getLatestReading("indoorAirQuality")).score;
-          if (value >= 93) {
-            value = 1;
-          } else if (value >= 80) {
-            value = 2;
-          } else if (value >= 60) {
-            value = 3;
-          } else if (value >= 40) {
-            value = 4;
-          } else {
-            value = 5;
-          }
-          this.log.debug(
-            "Network ID: %s, Sensor: %s Value: %s",
-            this.networkId,
-            this.name,
-            value,
+        case "co2Sensor": {
+          const ppm = (await this.getLatestReading("co2")).concentration;
+          this.logReading("co2", ppm);
+          this.sensorService.updateCharacteristic(
+            Characteristic.CarbonDioxideLevel,
+            ppm,
           );
-          this.merakiService1.updateCharacteristic(
+          this.sensorService.updateCharacteristic(
+            Characteristic.CarbonDioxideDetected,
+            ppm < CO2_ALERT_PPM ? 0 : 1,
+          );
+          break;
+        }
+        case "qualitySensor": {
+          const score = (await this.getLatestReading("indoorAirQuality"))
+            .score;
+          const pm25 = (await this.getLatestReading("pm25")).concentration;
+          const tvoc = (await this.getLatestReading("tvoc")).concentration;
+          this.logReading("indoorAirQuality", score);
+          this.logReading("pm25", pm25);
+          this.logReading("tvoc", tvoc);
+          this.sensorService.updateCharacteristic(
             Characteristic.AirQuality,
-            value,
+            toAirQuality(score),
           );
-          value = (await this.getLatestReading("pm25")).concentration;
-          this.log.debug(
-            "Network ID: %s, Sensor: %s PM2.5: %s",
-            this.networkId,
-            this.name,
-            value,
-          );
-          this.merakiService1.updateCharacteristic(
+          this.sensorService.updateCharacteristic(
             Characteristic.PM2_5Density,
-            value,
+            pm25,
           );
-          value = (await this.getLatestReading("tvoc")).concentration;
-          this.log.debug(
-            "Network ID: %s, Sensor: %s VOC: %s",
-            this.networkId,
-            this.name,
-            value,
-          );
-          this.merakiService1.updateCharacteristic(
+          this.sensorService.updateCharacteristic(
             Characteristic.VOCDensity,
-            value,
+            tvoc,
           );
+          break;
         }
       }
 
       if (!this.modelKnown) {
-        // go get model numbers for devices we have serials for
-        const response = await this.meraki.get(this.devicesUrl);
-        const picked = response.data.find(
-          (o) => o.serial === this.serialNumber,
-        );
-        if (picked && picked.model) {
-          this.informationService.setCharacteristic(
-            Characteristic.Model,
-            picked.model,
-          );
-          this.modelName = picked.model;
-          this.modelKnown = true;
-          this.log.info(
-            "%s: updated model to: %s",
-            this.serialNumber,
-            this.modelName,
-          );
-        } else {
-          this.log.debug(
-            "Device: %s, serial %s not found in network %s",
-            this.name,
-            this.serialNumber,
-            this.networkId,
-          );
-        }
+        await this.updateModelFromApi();
       }
     } catch (error) {
       this.log.error(
-        "UpdateDeviceState() - Device: %s, update status error: %s, state: Offline",
+        "Device: %s, update status error: %s",
         this.name,
         error.message,
       );
     }
   }
 
-  async getTemperature() {
-    try {
-      const value = (await this.getLatestReading("temperature")).celsius;
-      this.log.debug(
-        "getTemperature() - Network ID: %s, Sensor: %s Value: %s",
-        this.networkId,
-        this.name,
-        value,
+  //Resolve the sensor model from the network device list once
+  async updateModelFromApi() {
+    const response = await this.meraki.get(this.devicesUrl);
+    const device = response.data.find((d) => d.serial === this.serialNumber);
+    if (device && device.model) {
+      this.modelName = device.model;
+      this.modelKnown = true;
+      this.informationService.setCharacteristic(
+        Characteristic.Model,
+        this.modelName,
       );
-      return value;
+      this.log.info(
+        "%s: updated model to: %s",
+        this.serialNumber,
+        this.modelName,
+      );
+    } else {
+      this.log.debug(
+        "Device: %s, serial %s not found in network %s",
+        this.name,
+        this.serialNumber,
+        this.networkId,
+      );
+    }
+  }
+
+  //Shared onGet wrapper: read from the cache and translate failures into HAP errors
+  async handleGet(read) {
+    try {
+      return await read();
     } catch (error) {
       this.log.debug(
         "Device: %s, Serial: %s get state error: %s",
@@ -548,167 +468,53 @@ class MerakiMTDevice {
     }
   }
 
-  async getHumidity() {
-    try {
-      const value = (await this.getLatestReading("humidity"))
-        .relativePercentage;
-      this.log.debug(
-        "getHumidity() - Network ID: %s, Sensor: %s Value: %s",
-        this.networkId,
-        this.name,
-        value,
-      );
-      return value;
-    } catch (error) {
-      this.log.debug(
-        "Device: %s, Serial: %s get state error: %s",
-        this.name,
-        this.serialNumber,
-        error.message,
-      );
-      throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
+  getTemperature() {
+    return this.handleGet(
+      async () => (await this.getLatestReading("temperature")).celsius,
+    );
   }
 
-  async getContactState() {
-    try {
-      const value = (await this.getLatestReading("door")).open ? 1 : 0;
-      this.log.debug(
-        "getContactState() - Network ID: %s, Sensor: %s Value: %s",
-        this.networkId,
-        this.name,
-        value,
-      );
-      return value;
-    } catch (error) {
-      this.log.debug(
-        "Device: %s, Serial: %s get state error: %s",
-        this.name,
-        this.serialNumber,
-        error.message,
-      );
-      throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
+  getHumidity() {
+    return this.handleGet(
+      async () => (await this.getLatestReading("humidity")).relativePercentage,
+    );
   }
 
-  async getQuality() {
-    try {
-      let value = (await this.getLatestReading("indoorAirQuality")).score;
-      if (value >= 93) {
-        value = 1;
-      } else if (value >= 80) {
-        value = 2;
-      } else if (value >= 60) {
-        value = 3;
-      } else if (value >= 40) {
-        value = 4;
-      } else {
-        value = 5;
-      }
-      this.log.debug(
-        "getQuality() - Network ID: %s, Sensor: %s Value: %s",
-        this.networkId,
-        this.name,
-        value,
-      );
-      return value;
-    } catch (error) {
-      this.log.debug(
-        "Device: %s, Serial: %s get state error: %s",
-        this.name,
-        this.serialNumber,
-        error.message,
-      );
-      throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
+  getContactState() {
+    return this.handleGet(async () =>
+      (await this.getLatestReading("door")).open ? 1 : 0,
+    );
   }
 
-  async getVoc() {
-    try {
-      const value = (await this.getLatestReading("tvoc")).concentration;
-      this.log.debug(
-        "getVoc() - Network ID: %s, Sensor: %s Value: %s",
-        this.networkId,
-        this.name,
-        value,
-      );
-      return value;
-    } catch (error) {
-      this.log.debug(
-        "Device: %s, Serial: %s get state error: %s",
-        this.name,
-        this.serialNumber,
-        error.message,
-      );
-      throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
+  getQuality() {
+    return this.handleGet(async () =>
+      toAirQuality((await this.getLatestReading("indoorAirQuality")).score),
+    );
   }
 
-  async getCo2() {
-    try {
-      const value = (await this.getLatestReading("co2")).concentration;
-      this.log.debug(
-        "getCo2() - Network ID: %s, Sensor: %s Value: %s",
-        this.networkId,
-        this.name,
-        value,
-      );
-      return value;
-    } catch (error) {
-      this.log.debug(
-        "Device: %s, Serial: %s get state error: %s",
-        this.name,
-        this.serialNumber,
-        error.message,
-      );
-      throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
+  getVoc() {
+    return this.handleGet(
+      async () => (await this.getLatestReading("tvoc")).concentration,
+    );
   }
 
-  async getCo2Safe() {
-    try {
-      let value = (await this.getLatestReading("co2")).concentration;
-      if (value < 2000) {
-        value = 0;
-      } else {
-        value = 1;
-      }
-      this.log.debug(
-        "getCo2Safe() - Network ID: %s, Sensor: %s Value: %s",
-        this.networkId,
-        this.name,
-        value,
-      );
-      return value;
-    } catch (error) {
-      this.log.debug(
-        "Device: %s, Serial: %s get state error: %s",
-        this.name,
-        this.serialNumber,
-        error.message,
-      );
-      throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
+  getCo2() {
+    return this.handleGet(
+      async () => (await this.getLatestReading("co2")).concentration,
+    );
   }
 
-  async getPm25() {
-    try {
-      const value = (await this.getLatestReading("pm25")).concentration;
-      this.log.debug(
-        "getPm25() - Network ID: %s, Sensor: %s Value: %s",
-        this.networkId,
-        this.name,
-        value,
-      );
-      return value;
-    } catch (error) {
-      this.log.debug(
-        "Device: %s, Serial: %s get state error: %s",
-        this.name,
-        this.serialNumber,
-        error.message,
-      );
-      throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
+  getCo2Detected() {
+    return this.handleGet(async () =>
+      (await this.getLatestReading("co2")).concentration < CO2_ALERT_PPM
+        ? 0
+        : 1,
+    );
+  }
+
+  getPm25() {
+    return this.handleGet(
+      async () => (await this.getLatestReading("pm25")).concentration,
+    );
   }
 }
