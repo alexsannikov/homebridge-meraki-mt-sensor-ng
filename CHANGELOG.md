@@ -5,21 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.1.0-beta.2] - (2026-07-03)
-
-### Changed
-
-- Internal refactor with no intended functional changes: deduplicated the HomeKit getter handlers and service setup, extracted the air-quality and CO2 mapping helpers, removed unused fields.
-- `VOCDensity` maximum raised to 10000 µg/m³ — Meraki TVOC readings can exceed the HAP default of 1000.
-- Removed the misleading "state: Online" startup log line.
-
-## [2.1.0-beta.1] - (2026-07-03)
-
-### Fixed
-
-- Accessory information defaults no longer use single-character placeholders, fixing the "Model characteristic must have a length of more than 1 character" HAP warning. The model defaults to "MT Sensor" until it is resolved from the Meraki API; the firmware revision defaults to the plugin version.
-
-## [2.1.0-beta.0] - (2026-07-03)
+## [2.1.0] - (2026-07-03)
 
 ### Changed
 
@@ -29,12 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All metrics of a sensor are fetched in a single API request per refresh interval and HomeKit reads are served from cached readings, greatly reducing Meraki API traffic.
 - Default refresh interval aligned with the settings UI: 60 seconds (was 10).
 - Periodic sensor readings are logged at debug level to keep the Homebridge log quiet.
+- `VOCDensity` maximum raised to 10000 µg/m³ — Meraki TVOC readings can exceed the HAP default of 1000.
+- Internal refactor: deduplicated the HomeKit getter handlers and service setup, extracted the air-quality and CO2 mapping helpers, removed unused fields and the misleading "state: Online" startup log line.
 - Removed the leftover GitLab CI config; releases are published to npm manually.
 
 ### Fixed
 
 - Read errors report `SERVICE_COMMUNICATION_FAILURE` to HomeKit instead of returning `null`, removing "illegal value" characteristic warnings.
 - `ContactSensorState` receives `0`/`1` instead of a boolean.
+- Accessory information defaults no longer use single-character placeholders, fixing the "Model characteristic must have a length of more than 1 character" HAP warning. The model defaults to "MT Sensor" until it is resolved from the Meraki API; the firmware revision defaults to the plugin version.
 - Model lookup no longer throws when the configured serial number is not found in the network.
 - Config schema: the Serial Number field title displays correctly; added a minimum refresh interval of 5 seconds.
 - Devices without a serial number are skipped with a warning.
