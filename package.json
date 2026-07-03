@@ -1,6 +1,7 @@
 {
   "name": "homebridge-meraki-mt-sensor-ng",
-  "version": "2.0.1",
+  "displayName": "Homebridge Meraki MT Sensor NG",
+  "version": "2.1.0-beta.0",
   "description": "Homebridge next-generation plugin for Meraki MT Sensors",
   "license": "MIT",
   "author": "alexsannikov",

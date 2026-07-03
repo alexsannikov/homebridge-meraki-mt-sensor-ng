@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0-beta.0] - (2026-07-03)
+
+### Changed
+
+- **Migration note**: sensors are now exposed as bridged accessories of a dynamic platform instead of externally published accessories. After updating, remove the previously paired standalone sensor accessories from the Home app once — the sensors appear under the Homebridge bridge automatically, no manual pairing needed.
+- Accessory UUIDs are derived from the sensor serial number and type, so renaming a sensor no longer breaks the HomeKit pairing.
+- Sensor readings are requested with `serials[]`/`metrics[]` query parameters, so the plugin reads the configured sensor instead of the first sensor of the organization.
+- All metrics of a sensor are fetched in a single API request per refresh interval and HomeKit reads are served from cached readings, greatly reducing Meraki API traffic.
+- Default refresh interval aligned with the settings UI: 60 seconds (was 10).
+- Periodic sensor readings are logged at debug level to keep the Homebridge log quiet.
+- Removed the leftover GitLab CI config; releases are published to npm manually.
+
+### Fixed
+
+- Read errors report `SERVICE_COMMUNICATION_FAILURE` to HomeKit instead of returning `null`, removing "illegal value" characteristic warnings.
+- `ContactSensorState` receives `0`/`1` instead of a boolean.
+- Model lookup no longer throws when the configured serial number is not found in the network.
+- Config schema: the Serial Number field title displays correctly; added a minimum refresh interval of 5 seconds.
+- Devices without a serial number are skipped with a warning.
+- Accessories removed from the config are now unregistered from the bridge.
+
+### Removed
+
+- Removed the unused `meraki` preferences directory creation — the plugin no longer writes to disk.
+
 ## [2.0.1] - (2026-05-25)
 
 ### Changed

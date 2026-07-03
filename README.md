@@ -27,6 +27,10 @@ The Homebridge platform name remains `MerakiMT`, so existing configurations can 
 }
 ```
 
+## Migrating from 2.0.x
+
+Since v2.1.0, sensors are exposed as bridged accessories of a dynamic platform instead of separately paired external accessories. After updating, remove the previously paired standalone sensor accessories from the Home app once — the sensors will appear under your Homebridge bridge automatically, no manual pairing needed.
+
 ## Installation
 
 1. Follow the step-by-step instructions on the [Homebridge Wiki](https://github.com/homebridge/homebridge/wiki) for how to install Homebridge.
