@@ -7,6 +7,11 @@
   "schema": {
     "type": "object",
     "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "MerakiMT"
+      },
       "devices": {
         "title": "Sensors",
         "type": "array",
@@ -16,31 +21,26 @@
             "name": {
               "title": "Sensor Name",
               "type": "string",
-              "default": "Sensor name",
-              "required": true
+              "default": "Sensor name"
             },
             "host": {
               "title": "API path",
               "type": "string",
-              "required": true,
               "description": "Example: https://api.meraki.com"
             },
             "apiKey": {
               "title": "API key",
               "type": "string",
-              "required": true,
               "description": "Manage API Keys here: https://dashboard.meraki.com/manage/users/edit"
             },
             "organizationId": {
               "title": "Organization Id",
               "type": "string",
-              "required": true,
               "description": "Find your organization: https://api.meraki.com/api/v1/organizations"
             },
             "networkId": {
               "title": "Network ID",
               "type": "string",
-              "required": true,
               "description": "Find your network ID: https://api.meraki.com/api/v1/organizations/your_org_id/networks"
             },
             "type": {
@@ -69,8 +69,7 @@
                   "title": "CO2",
                   "const": "co2Sensor"
                 }
-              ],
-              "required": true
+              ]
             },
             "refreshInterval": {
               "title": "Refresh interval (sec)",
@@ -78,19 +77,27 @@
               "default": 60,
               "minimum": 5,
               "maximum": 3600,
-              "required": false,
               "description": "Change the refresh interval, lower values may be beneficial for door sensors"
             },
             "serial": {
               "title": "Serial Number",
               "type": "string",
-              "description": "Set the serial number of the sensor",
-              "required": true
+              "description": "Set the serial number of the sensor"
             }
-          }
+          },
+          "required": [
+            "name",
+            "host",
+            "apiKey",
+            "organizationId",
+            "networkId",
+            "type",
+            "serial"
+          ]
         }
       }
-    }
+    },
+    "required": ["name"]
   },
   "layout": [
     {
