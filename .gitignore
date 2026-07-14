@@ -4,3 +4,5 @@ npm-debug.log
 *config.json
 .idea/
 *.tgz
+.chat.txt
+.chat.prev.txt
